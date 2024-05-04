@@ -42,7 +42,7 @@ namespace ti::graphics
             TI_ASSERT(0, "");
         }
         glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
-        glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE);
+        glfwWindowHint(GLFW_RESIZABLE, GLFW_TRUE);
     }
 
     void _terminateGlfw()
@@ -50,9 +50,10 @@ namespace ti::graphics
         glfwTerminate();
     }
 
-    void _createWindow(int width, int height, const char *title, GLFWwindow **window)
+    void _createWindow(int width, int height, const char *title, GLFWwindow **window, GLFWframebuffersizefun framebufferSizeCallback)
     {
         *window = glfwCreateWindow(width, height, title, NULL, NULL);
+        glfwSetFramebufferSizeCallback(*window, framebufferSizeCallback);
     }
 
     void _destroyWindow(GLFWwindow *window)
@@ -687,16 +688,16 @@ namespace ti::graphics
         vkDestroyCommandPool(device, *commandPool, NULL);
     }
 
-    void _allocateCommandBuffer(VkDevice device, VkCommandPool commandPool, VkCommandBuffer *commandBuffer)
+    void _allocateCommandBuffers(VkDevice device, VkCommandPool commandPool, VkCommandBuffer *commandBuffers)
     {
         VkCommandBufferAllocateInfo allocInfo;
         allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
         allocInfo.pNext = NULL;
         allocInfo.commandPool = commandPool;
         allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY; // Can be submitted for execution, but not called from other command buffers (secondary is opposite)
-        allocInfo.commandBufferCount = 1;
+        allocInfo.commandBufferCount = 2;
 
-        VK_CHECK_RESULT(vkAllocateCommandBuffers(device, &allocInfo, commandBuffer))
+        VK_CHECK_RESULT(vkAllocateCommandBuffers(device, &allocInfo, commandBuffers))
     }
 
     void _recordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t imageIdx, VkFramebuffer *framebuffers, const Swapchain *swapchain, VkRenderPass renderPass, VkPipeline graphicsPipeline)
@@ -747,7 +748,7 @@ namespace ti::graphics
         VK_CHECK_RESULT(vkEndCommandBuffer(commandBuffer))
     }
 
-    void _createSyncObjects(VkDevice device, VkSemaphore *imageAvailableSemaphore, VkSemaphore *renderFinishedSemaphore, VkFence *inFlightFence)
+    void _createSyncObjects(VkDevice device, VkSemaphore *imageAvailableSemaphores, VkSemaphore *renderFinishedSemaphores, VkFence *inFlightFences)
     {
         VkSemaphoreCreateInfo semaphoreCreateInfo;
         semaphoreCreateInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
@@ -759,16 +760,51 @@ namespace ti::graphics
         fenceCreateInfo.pNext = NULL;
         fenceCreateInfo.flags = VK_FENCE_CREATE_SIGNALED_BIT; // Fence is signaled at the start (used to e.g. fence wait at the beginning)
 
-        VK_CHECK_RESULT(vkCreateSemaphore(device, &semaphoreCreateInfo, NULL, imageAvailableSemaphore))
-        VK_CHECK_RESULT(vkCreateSemaphore(device, &semaphoreCreateInfo, NULL, renderFinishedSemaphore))
-        VK_CHECK_RESULT(vkCreateFence(device, &fenceCreateInfo, NULL, inFlightFence))
+        for(int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
+        {
+            VK_CHECK_RESULT(vkCreateSemaphore(device, &semaphoreCreateInfo, NULL, &imageAvailableSemaphores[i]))
+            VK_CHECK_RESULT(vkCreateSemaphore(device, &semaphoreCreateInfo, NULL, &renderFinishedSemaphores[i]))
+            VK_CHECK_RESULT(vkCreateFence(device, &fenceCreateInfo, NULL, &inFlightFences[i]))
+        }
     }
 
-    void _destroySyncObjects(VkDevice device, VkSemaphore *imageAvailableSemaphore, VkSemaphore *renderFinishedSemaphore, VkFence *inFlightFence)
+    void _destroySyncObjects(VkDevice device, VkSemaphore *imageAvailableSemaphores, VkSemaphore *renderFinishedSemaphores, VkFence *inFlightFences)
     {
-        vkDestroySemaphore(device, *imageAvailableSemaphore, NULL);
-        vkDestroySemaphore(device, *renderFinishedSemaphore, NULL);
-        vkDestroyFence(device, *inFlightFence, NULL);
+        for(int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
+        {
+            vkDestroySemaphore(device, imageAvailableSemaphores[i], NULL);
+            vkDestroySemaphore(device, renderFinishedSemaphores[i], NULL);
+            vkDestroyFence(device, inFlightFences[i], NULL);
+        }
+    }
+
+    void _recreateSwapchainAndFramebuffers(
+        VkPhysicalDevice physicalDevice,
+        VkDevice device,
+        GLFWwindow *window,
+        VkSurfaceKHR surface,
+        QueueFamilies *queueFamilies,
+        Swapchain *swapchain,
+        VkRenderPass renderPass,
+        VkFramebuffer *framebuffers)
+    {
+        int width = 0, height = 0;
+        glfwGetFramebufferSize(window, &width, &height);
+        while(width == 0 || height == 0)
+        {
+            glfwGetFramebufferSize(window, &width, &height);
+            glfwWaitEvents();
+            if(glfwWindowShouldClose(window))
+		        return;
+        }
+
+        vkDeviceWaitIdle(device);
+
+        _destroyFramebuffers(device, framebuffers, swapchain->imageCount);
+        _destroySwapchain(swapchain);
+
+        _createSwapchain(physicalDevice, device, window, surface, queueFamilies, swapchain);
+        _createFramebuffers(device, renderPass, swapchain, framebuffers);
     }
 
     // GLOBAL VARIABLES //
@@ -797,11 +833,15 @@ namespace ti::graphics
         VkFramebuffer framebuffers[MAX_FRAMEBUFFER_COUNT];
 
         VkCommandPool commandPool;
-        VkCommandBuffer commandBuffer;
+        VkCommandBuffer commandBuffers[MAX_FRAMES_IN_FLIGHT];
 
-        VkSemaphore imageAvailableSemaphore;
-        VkSemaphore renderFinishedSemaphore;
-        VkFence inFlightFence;
+        VkSemaphore imageAvailableSemaphores[MAX_FRAMES_IN_FLIGHT];
+        VkSemaphore renderFinishedSemaphores[MAX_FRAMES_IN_FLIGHT];
+        VkFence inFlightFences[MAX_FRAMES_IN_FLIGHT];
+
+        bool framebufferResized = false;
+
+        uint32_t currentFrame = 0;
     } g;
 
     // HEADER FILE FUNCTIONS DEFINITIONS //
@@ -809,7 +849,10 @@ namespace ti::graphics
     void initalize()
     {
         _initalizeGlfw();
-        _createWindow(1280, 720, "Hello, Vulkan!", &g.window);
+        _createWindow(1280, 720, "Hello, Vulkan!", &g.window, [](GLFWwindow* w, int width, int height)
+        {
+            g.framebufferResized = true;
+        });
 
         _createInstance(&g.instance);
         _createDebugUtilsMessenger(g.instance, &g.debugMessenger);
@@ -830,16 +873,16 @@ namespace ti::graphics
         _createFramebuffers(g.device, g.renderPass, &g.swapchain, g.framebuffers);
 
         _createCommandPool(g.device, &g.queueFamilies, &g.commandPool);
-        _allocateCommandBuffer(g.device, g.commandPool, &g.commandBuffer);
+        _allocateCommandBuffers(g.device, g.commandPool, g.commandBuffers);
 
-        _createSyncObjects(g.device, &g.imageAvailableSemaphore, &g.renderFinishedSemaphore, &g.inFlightFence);
+        _createSyncObjects(g.device, g.imageAvailableSemaphores, g.renderFinishedSemaphores, g.inFlightFences);
     }
 
     void terminate()
     {
         vkDeviceWaitIdle(g.device); // Wait till all GPU commands are done (and then clean resources...)
 
-        _destroySyncObjects(g.device, &g.imageAvailableSemaphore, &g.renderFinishedSemaphore, &g.inFlightFence);
+        _destroySyncObjects(g.device, g.imageAvailableSemaphores, g.renderFinishedSemaphores, g.inFlightFences);
 
         _destroyCommandPool(g.device, &g.commandPool);
 
@@ -873,17 +916,34 @@ namespace ti::graphics
 
     void drawFrame()
     {
-        vkWaitForFences(g.device, 1, &g.inFlightFence, VK_TRUE, UINT64_MAX); // Wait for all specified fences to finish, timeout is disabled
-        vkResetFences(g.device, 1, &g.inFlightFence);
+        VkResult result;
+
+        const VkCommandBuffer commandBuffer = g.commandBuffers[g.currentFrame];
+        const VkSemaphore imageAvailableSemaphore = g.imageAvailableSemaphores[g.currentFrame];
+        const VkSemaphore renderFinishedSemaphore = g.renderFinishedSemaphores[g.currentFrame];
+        const VkFence inFlightFence = g.inFlightFences[g.currentFrame];
+
+        vkWaitForFences(g.device, 1, &inFlightFence, VK_TRUE, UINT64_MAX); // Wait for all specified fences to finish, timeout is disabled
 
         uint32_t imageIdx;
-        vkAcquireNextImageKHR(g.device, g.swapchain.swapchain, UINT64_MAX, g.imageAvailableSemaphore, VK_NULL_HANDLE, &imageIdx);
-        vkResetCommandBuffer(g.commandBuffer, 0);
-        
-        _recordCommandBuffer(g.commandBuffer, imageIdx, g.framebuffers, &g.swapchain, g.renderPass, g.graphicsPipeline);
+        result = vkAcquireNextImageKHR(g.device, g.swapchain.swapchain, UINT64_MAX, imageAvailableSemaphore, VK_NULL_HANDLE, &imageIdx);
+        if(result == VK_ERROR_OUT_OF_DATE_KHR) // e.g. window is resized
+        {
+            _recreateSwapchainAndFramebuffers(g. physicalDevice, g.device, g.window, g.surface, &g.queueFamilies, &g.swapchain, g.renderPass, g.framebuffers);
+            return;
+        }
+        else if(result != VK_SUCCESS && result != VK_SUBOPTIMAL_KHR)
+        {
+            TI_ASSERT(0, "");
+        }
 
-        VkSemaphore waitSemaphores[]{ g.imageAvailableSemaphore };
-        VkSemaphore signalSemaphores[]{ g.renderFinishedSemaphore };
+        vkResetFences(g.device, 1, &inFlightFence);
+        vkResetCommandBuffer(commandBuffer, 0);
+        
+        _recordCommandBuffer(commandBuffer, imageIdx, g.framebuffers, &g.swapchain, g.renderPass, g.graphicsPipeline);
+
+        VkSemaphore waitSemaphores[]{ imageAvailableSemaphore };
+        VkSemaphore signalSemaphores[]{ renderFinishedSemaphore };
         VkPipelineStageFlags waitStages[]{ VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT };
 
         VkSubmitInfo submitInfo;
@@ -893,11 +953,11 @@ namespace ti::graphics
         submitInfo.pWaitSemaphores = waitSemaphores;
         submitInfo.pWaitDstStageMask = waitStages;
         submitInfo.commandBufferCount = 1;
-        submitInfo.pCommandBuffers = &g.commandBuffer;
+        submitInfo.pCommandBuffers = &commandBuffer;
         submitInfo.signalSemaphoreCount = 1;
         submitInfo.pSignalSemaphores = signalSemaphores;
 
-        VK_CHECK_RESULT(vkQueueSubmit(g.graphicsQueue, 1, &submitInfo, g.inFlightFence))
+        VK_CHECK_RESULT(vkQueueSubmit(g.graphicsQueue, 1, &submitInfo, inFlightFence))
 
         VkSwapchainKHR swapchains[]{ g.swapchain.swapchain };
 
@@ -911,6 +971,17 @@ namespace ti::graphics
         presentInfo.pImageIndices = &imageIdx;
         presentInfo.pResults = NULL;
 
-        vkQueuePresentKHR(g.presentQueue, &presentInfo);
+        result = vkQueuePresentKHR(g.presentQueue, &presentInfo);
+        if(result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR || g.framebufferResized)
+        {
+            g.framebufferResized = false;
+            _recreateSwapchainAndFramebuffers(g. physicalDevice, g.device, g.window, g.surface, &g.queueFamilies, &g.swapchain, g.renderPass, g.framebuffers);
+        }
+        else if(result != VK_SUCCESS)
+        {
+            TI_ASSERT(0, "");
+        }
+
+        g.currentFrame = (g.currentFrame + 1) % MAX_FRAMES_IN_FLIGHT;
     }
 }

@@ -12,10 +12,12 @@
         TI_ASSERT(0, "");   \
     }
 
-#define GET_ASSET_PATH(asset_name) "../../../tinkering/vulkan_app/" asset_name
+#define GET_ASSET_PATH(asset_name) "../../../tinkering/editor/" asset_name
 
 namespace ti::graphics
 {
+    static const int MAX_FRAMES_IN_FLIGHT = 2;
+
     #ifdef NDEBUG
         static const bool ENABLE_VALIDATION_LAYERS = false;
     #else

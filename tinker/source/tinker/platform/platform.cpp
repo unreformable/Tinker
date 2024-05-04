@@ -11,7 +11,7 @@ namespace ti::platform
 {
     static void myGlfwErrorCallback(int error, const char* description)
     {
-        std::cerr << "GLFW_ERROR: %s\n" << description << std::endl;
+        fprintf(stderr, "GLFW_ERROR: %s\n", description);
     }
 
     void initalize()

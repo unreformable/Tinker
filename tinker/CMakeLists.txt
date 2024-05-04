@@ -3,8 +3,6 @@ add_subdirectory(third_party/)
 add_library(tinker STATIC
     source/tinker/core/file.cpp
     source/tinker/core/image.cpp
-    source/tinker/graphics/ogl/ogl.cpp
-    source/tinker/graphics/graphics.cpp
     source/tinker/math/trigonometry.cpp
     source/tinker/math/matrix4.cpp
     source/tinker/math/vector2.cpp

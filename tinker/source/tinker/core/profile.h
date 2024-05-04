@@ -4,7 +4,7 @@
 
 
 
-#ifdef TI_PROFILE
+#ifdef TI_PROFILING
     #define PROFILE_SCOPE(name) \
         // ProfileTimer timer##__LINE__(name)
     #define PROFILE_FUNCTION() \

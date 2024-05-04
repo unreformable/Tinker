@@ -1,2 +1,2 @@
-cd build/tinkering/vulkan_app
-vulkan_app.exe
+cd build/tinkering/editor
+editor.exe

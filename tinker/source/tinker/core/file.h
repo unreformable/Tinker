@@ -2,15 +2,11 @@
 
 #include "tinker/core/types.h"
 
-#include <vector>
-
 
 
 namespace ti::core
 {
-    /**
-     * @return The file data without null terminator.
-     * @retval Empty vector if could not open file.
-    */
-    std::vector<u8> readFile(const char* filePath);
+    void readFile(const char *filePath, u8 *buffer, size_t *fileSize);
+
+    u8* readFile(const char *filePath, size_t *fileSize);
 }

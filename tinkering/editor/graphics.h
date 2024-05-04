@@ -1,53 +1,31 @@
 #pragma once
 
-#include <stddef.h>
 
 
-
-namespace graphics
+namespace ti::graphics
 {
-    struct BufferDesc
-    {
-        size_t size;
-        // binding
-        // attributes
-    };
+    void initalize();
+    void terminate();
 
-    // 
-    class VertexBuffer
-    {
-    public:
-        VertexBuffer(Device* device, const BufferDesc& desc);
-        ~VertexBuffer();
-    };
+    bool shouldClose();
+    void pollEvents();
+    void drawFrame();
 
-    struct PipelineDesc
-    {
-        // shader stages
-    };
+    // struct Window
+    // {
+    //     GLFWwindow *handle;
+    //     int width;
+    //     int height;
+    //     const char *title;
+    // };
+    // void createWindow(int width, int height, const char *title, Window *window);
+    // void destroyWindow(Window *window);
 
-    class Pipeline
-    {
-    public:
-        Pipeline(const PipelineDesc& desc);
-        ~Pipeline();
-    };
-
-    struct TextureDesc
-    {
-
-    };
-
-    class Texture
-    {
-    public:
-        Texture(const TextureDesc& desc);
-        ~Texture();
-    }
-
-    class Device
-    {
-    public:
-        VertexBuffer CreateBuffer(const BufferDesc& desc);
-    };
+    // struct Swapchain
+    // {
+    //     Window window;
+    //     VkSurfaceKHR surface;
+    // };
+    // void createSwapchain(const Window *window, Swapchain *swapchain);
+    // void destroySwapchain(Swapchain *swapchain);
 }

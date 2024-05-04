@@ -3,7 +3,7 @@
 #include "tinker/core/config.h"
 
 #include <cassert>
-#include <iostream>
+#include <stdio.h>
 #include <string.h>
 
 

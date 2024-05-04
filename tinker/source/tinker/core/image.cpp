@@ -7,23 +7,28 @@
 
 
 
-u8* readImage(const char* filePath, u32& outWidth, u32& outHeight, u32& outChannels)
+namespace ti::core
 {
-    int w, h, c;
-    u8* pixels = stbi_load(filePath, &w, &h, &c, 0);
+    u8* readImage(const char *filePath, u32 *width, u32 *height, u8 *channels)
+    {
+        int w, h, c;
+        u8* pixels = stbi_load(filePath, &w, &h, &c, 0);
+        if(!pixels)
+        {
+            *width = 0;
+            *height = 0;
+            *channels = 0;
+            return NULL;
+        }
 
-    TI_REQUIRE(pixels, "Pixels are valid");
-    TI_REQUIRE(w > 0, "Width is greater than 0");
-    TI_REQUIRE(h > 0, "Height is greater than 0");
-    TI_REQUIRE(c > 0, "Channels count is greater than 0");
+        *width = (u32)w;
+        *height = (u32)h;
+        *channels = (u8)c;
+        return pixels;
+    }
 
-    outWidth = (u32)w;
-    outHeight = (u32)h;
-    outChannels = (u32)c;
-    return pixels;
-}
-
-void freeImage(u8* pixels)
-{
-    stbi_image_free(pixels);
+    void freeImage(u8 *pixels)
+    {
+        stbi_image_free(pixels);
+    }
 }

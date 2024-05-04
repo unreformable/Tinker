@@ -2,26 +2,42 @@
 
 #include "tinker/core/debug.h"
 
-#include <fstream>
-
 
 
 namespace ti::core
 {
-    std::vector<u8> readFile(const char* filePath)
+    void readFile(const char *filePath, u8 *buffer, size_t *fileSize)
     {
-        std::ifstream file(filePath, std::ios::ate | std::ios::binary);
-        if(!file.is_open())
+        FILE *file = fopen(filePath, "rb");
+        if(file == NULL)
         {
-            TI_ERROR("Could not open file %s", filePath);
-            return std::vector<u8>();
+            TI_ERROR("Could not open file from path: %s", filePath);
+            *fileSize = 0;
         }
+        fseek(file, 0, SEEK_END);
+        *fileSize = (size_t)ftell(file);
+        fseek(file, 0, SEEK_SET);
 
-        const size_t fileSize = (size_t)file.tellg();
-        file.seekg(0);
+        fread(buffer, sizeof(u8), *fileSize, file);
+        fclose(file);
+    }
 
-        std::vector<u8> buffer(fileSize);
-        file.read((char*)buffer.data(), fileSize);
+    u8* readFile(const char *filePath, size_t *fileSize)
+    {
+        FILE *file = fopen(filePath, "rb");
+        if(file == NULL)
+        {
+            TI_ERROR("Could not open file from path: %s", filePath);
+            *fileSize = 0;
+            return NULL;
+        }
+        fseek(file, 0, SEEK_END);
+        *fileSize = (size_t)ftell(file);
+        fseek(file, 0, SEEK_SET);
+
+        u8 *buffer = (u8*)malloc(*fileSize * sizeof(u8));
+        fread(buffer, sizeof(u8), *fileSize, file);
+        fclose(file);
 
         return buffer;
     }
