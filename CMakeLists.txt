@@ -9,4 +9,4 @@ elseif(CMAKE_SYSTEM MATCHES Linux)
 endif()
 
 add_subdirectory(tinker/)
-add_subdirectory(tinkering/editor/)
+add_subdirectory(tinkering/vulkan_app/)

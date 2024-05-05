@@ -12,7 +12,7 @@
         TI_ASSERT(0, "");   \
     }
 
-#define GET_ASSET_PATH(asset_name) "../../../tinkering/editor/" asset_name
+#define GET_ASSET_PATH(asset_name) "../../../tinkering/vulkan_app/" asset_name
 
 namespace ti::graphics
 {
