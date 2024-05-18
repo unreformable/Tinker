@@ -34,7 +34,8 @@ Even if the code is very chaotic and some parts are not completed, I think you c
 Lessons learned
 ---------------
 - If you want to learn something, many small projects can yield better results (because you can prototype more easily and not worry about how changes will affect the project),
-- Do not try to do it all yourself and instead use libraries (of course, you can always try to create a library yourself and then use it in your project),
 - KISS,
+- Have a reason,
 - Refactor it to keep it in good shape,
+- Do not try to do it all yourself and instead use libraries (of course, you can always try to create a library yourself and then use it in your project),
 - Plan, plan, plan, plan!
